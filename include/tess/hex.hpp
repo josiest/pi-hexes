@@ -200,7 +200,7 @@ hex<Field> operator-(const hex<Field>& a, const hex<Field>& b)
 
 template<typename Field>
 struct std::tuple_size<tess::hex<Field>> {
-    static constexpr const std::size_t value = 2;
+    static constexpr std::size_t value = 2;
 };
 
 //

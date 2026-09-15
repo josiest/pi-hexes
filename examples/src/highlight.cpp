@@ -36,7 +36,7 @@ struct std::hash<sf::Vector2i>
 
 // convert a hex coordinate to sfml shape
 template<typename Hex> requires tess::axial<Hex> or tess::cartesian<Hex>
-sf::ConvexShape hex_shape(const tess::pointed_fbasis& basis, const Hex& hex)
+sf::ConvexShape hex_shape(const tess::fbasis& basis, const Hex& hex)
 {
     std::array<sf::Vector2f, 6> verts;
     basis.vertices<sf::Vector2f>(hex, verts.begin());
@@ -52,13 +52,13 @@ class highlight_system {
 public:
     using HexCoord = sf::Vector2i;
 
-    explicit highlight_system(const tess::pointed_fbasis& basis);
+    explicit highlight_system(const tess::fbasis& basis);
     void on_mouse_move(int x, int y);
     void on_mouse_pressed(int x, int y);
     void on_mouse_released();
     void draw(sf::RenderWindow& window);
 
-    tess::pointed_fbasis basis;
+    tess::fbasis basis;
 
     // all hex shapes to be drawn
     using ShapeEntry = std::pair<HexCoord, sf::ConvexShape>;
@@ -74,7 +74,7 @@ public:
     std::unordered_set<HexCoord> clicked_range;
 };
 
-highlight_system::highlight_system(const tess::pointed_fbasis& basis)
+highlight_system::highlight_system(const tess::fbasis& basis)
     : basis{ basis }
 {
     // initialize the set of hexes we're working with
@@ -140,11 +140,12 @@ int main()
                              window_settings.name, window_settings.style };
 
     // Create the basis for the grid - centered in the middle of the screen
-    tess::pointed_fbasis basis
+    const tess::fbasis basis
     {
         static_cast<float>(window_settings.dimensions.x)/2.f,
         static_cast<float>(window_settings.dimensions.y)/2.f,
-        world_settings.unit_size
+        world_settings.unit_size,
+        tess::HexTop::Pointed
     };
     highlight_system system(basis);
 

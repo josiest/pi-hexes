@@ -12,7 +12,7 @@ namespace tess
 enum class HexTop { Flat, Pointed };
 
 /** An abstract data type for converting to and from screen and hex space. */
-template<std::floating_point Real, HexTop TopStyle>
+template<std::floating_point Real>
 class Basis
 {
 public:
@@ -22,13 +22,13 @@ public:
      * Basis must have a positive `unit_size` measured in pixels. `top`
      * determines if the top of each hex unit is flat or pointed.
      */
-    Basis(Real x, Real y, Real unit_size)
+    Basis(Real x, Real y, Real unit_size, HexTop top_style)
 
-        : _basis{4}, _inverse{4}, x{x}, y{y},
-          _unit_size{unit_size}
+        : _basis{4}, _inverse{4}, _top_style(top_style),
+          x{x}, y{y}, _unit_size{unit_size}
     {
         static constexpr Real sqrt3 = 1.73205;
-        if constexpr (TopStyle == HexTop::Pointed)
+        if (top_style == HexTop::Pointed)
         {
             _basis = {sqrt3, sqrt3/2, 0, 3/Real(2)};
             _inverse = {sqrt3/3, -1/Real(3), 0, 2/Real(3)};
@@ -117,7 +117,7 @@ public:
     {
         auto center = pixel<Point>(h);
         Real constexpr pi = std::numbers::pi_v<Real>;
-        Real const offset = TopStyle == HexTop::Pointed? pi/6 : 0;
+        Real const offset = _top_style == HexTop::Pointed? pi/6 : 0;
 
         // add each vertex to the list
         for (int i = 0; i < 6; ++i) {
@@ -141,13 +141,10 @@ private:
     std::valarray<Real> _basis;
     std::valarray<Real> _inverse;
 
+    HexTop _top_style;
     Real x; Real y;
     Real _unit_size;
 };
 
-template<HexTop TopStyle>
-using fbasis = Basis<float, TopStyle>;
-
-using flat_fbasis = Basis<float, HexTop::Flat>;
-using pointed_fbasis = Basis<float, HexTop::Pointed>;
+using fbasis = Basis<float>;
 }

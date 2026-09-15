@@ -25,7 +25,7 @@ struct example_settings
 
 // convert a hex coordinate to an sfml shape
 template<typename Point> requires tess::axial<Point> or tess::cartesian<Point>
-static sf::ConvexShape hex_shape(const tess::flat_fbasis& basis, const Point & hex)
+static sf::ConvexShape hex_shape(const tess::fbasis& basis, const Point & hex)
 {
     sf::ConvexShape shape{6};
     // if sf::Shape had begin() -> output_iterator<Vector2f>
@@ -48,11 +48,12 @@ int main()
     static constexpr simple::example_settings example_settings;
 
     // Create the basis for the grid, centered in the middle of the screen
-    const tess::flat_fbasis basis
+    const tess::fbasis basis
     {
         static_cast<float>(window_settings.dimensions.x)/2.f,
         static_cast<float>(window_settings.dimensions.y)/2.f,
-        example_settings.unit_size
+        example_settings.unit_size,
+        tess::HexTop::Flat
     };
 
     // initialize the hexes we're working with
