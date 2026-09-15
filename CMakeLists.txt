@@ -1,6 +1,6 @@
 # set cmake and compiler options
 cmake_minimum_required(VERSION 4.4)
-project(tess VERSION 0.2.0)
+project(tess VERSION 0.3.0)
 
 #
 # Define the library
