@@ -1,4 +1,4 @@
-#include "tess/tess.hpp"
+#include "pi/hexes.hpp"
 #include <SFML/Graphics.hpp>
 
 #include <optional>
@@ -35,8 +35,8 @@ struct std::hash<sf::Vector2i>
 };
 
 // convert a hex coordinate to sfml shape
-template<typename Hex> requires tess::axial<Hex> or tess::cartesian<Hex>
-sf::ConvexShape hex_shape(const tess::fbasis& basis, const Hex& hex)
+template<typename Hex> requires pi::axial<Hex> or pi::cartesian<Hex>
+sf::ConvexShape hex_shape(const pi::fbasis& basis, const Hex& hex)
 {
     std::array<sf::Vector2f, 6> verts;
     basis.vertices<sf::Vector2f>(hex, verts.begin());
@@ -52,13 +52,13 @@ class highlight_system {
 public:
     using HexCoord = sf::Vector2i;
 
-    explicit highlight_system(const tess::fbasis& basis);
+    explicit highlight_system(const pi::fbasis& basis);
     void on_mouse_move(int x, int y);
     void on_mouse_pressed(int x, int y);
     void on_mouse_released();
     void draw(sf::RenderWindow& window);
 
-    tess::fbasis basis;
+    pi::fbasis basis;
 
     // all hex shapes to be drawn
     using ShapeEntry = std::pair<HexCoord, sf::ConvexShape>;
@@ -74,13 +74,13 @@ public:
     std::unordered_set<HexCoord> clicked_range;
 };
 
-highlight_system::highlight_system(const tess::fbasis& basis)
+highlight_system::highlight_system(const pi::fbasis& basis)
     : basis{ basis }
 {
     // initialize the set of hexes we're working with
     // and set some basic graphical settings
     std::vector<HexCoord> hexes;
-    tess::hex_range(HexCoord(0, 0), 30, std::back_inserter(hexes));
+    pi::hex_range(HexCoord(0, 0), 30, std::back_inserter(hexes));
 
     for (const auto & hex : hexes)
     {
@@ -92,9 +92,9 @@ highlight_system::highlight_system(const tess::fbasis& basis)
 
 void highlight_system::on_mouse_move(int x, int y)
 {
-    // convert the sfml point to a tess point
+    // convert the sfml point to a pi point
     // and round it to the nearest hex
-    hovered = tess::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
+    hovered = pi::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
 
     // if the mouse button is down, update the line from the
     // clicked hex to the hovered hex
@@ -102,14 +102,14 @@ void highlight_system::on_mouse_move(int x, int y)
     {
         clicked_range.clear();
         const auto into_clicked = std::inserter(clicked_range, clicked_range.begin());
-        tess::line(*clicked, *hovered, into_clicked);
+        pi::line(*clicked, *hovered, into_clicked);
     }
 }
 
 void highlight_system::on_mouse_pressed(int x, int y)
 {
     // keep track of the clicked coordinate when the mouse button gets pressed
-    clicked = tess::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
+    clicked = pi::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
 }
 
 void highlight_system::on_mouse_released()
@@ -140,12 +140,12 @@ int main()
                              window_settings.name, window_settings.style };
 
     // Create the basis for the grid - centered in the middle of the screen
-    const tess::fbasis basis
+    const pi::fbasis basis
     {
         static_cast<float>(window_settings.dimensions.x)/2.f,
         static_cast<float>(window_settings.dimensions.y)/2.f,
         world_settings.unit_size,
-        tess::HexTop::Pointed
+        pi::HexTop::Pointed
     };
     highlight_system system(basis);
 

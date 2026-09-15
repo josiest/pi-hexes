@@ -11,7 +11,7 @@
 #include <tuple>
 #include <cstddef>
 
-namespace tess {
+namespace pi {
 
 /**
  * A representation of a hexagonal coordinate.
@@ -199,7 +199,7 @@ hex<Field> operator-(const hex<Field>& a, const hex<Field>& b)
 //
 
 template<typename Field>
-struct std::tuple_size<tess::hex<Field>> {
+struct std::tuple_size<pi::hex<Field>> {
     static constexpr std::size_t value = 2;
 };
 
@@ -209,13 +209,13 @@ struct std::tuple_size<tess::hex<Field>> {
 
 template<std::size_t i, typename Field>
 requires (i < 2)
-struct std::tuple_element<i, tess::hex<Field>> {
+struct std::tuple_element<i, pi::hex<Field>> {
     using type = std::add_const_t<Field>;
 };
 
-template <tess::numeric Field>
-struct std::hash<tess::hex<Field>> {
-    size_t operator()(const tess::hex<Field>& h) const
+template <pi::numeric Field>
+struct std::hash<pi::hex<Field>> {
+    size_t operator()(const pi::hex<Field>& h) const
     {
         constexpr hash<double> double_hash;
         size_t hq = double_hash(static_cast<double>(h.q));

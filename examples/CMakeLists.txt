@@ -6,9 +6,9 @@ find_package(SFML COMPONENTS System Graphics Window)
 
 # compilation target for simple example
 add_executable(simple src/simple.cpp)
-target_link_libraries(simple PRIVATE SFML::System SFML::Window SFML::Graphics tess::tess)
+target_link_libraries(simple PRIVATE SFML::System SFML::Window SFML::Graphics pi::hexes)
 
 # compilation target for highlight example
 add_executable(highlight src/highlight.cpp)
-target_link_libraries(highlight PRIVATE sfml-graphics sfml-system sfml-window tess::tess)
+target_link_libraries(highlight PRIVATE sfml-graphics sfml-system sfml-window pi::hexes)
 target_compile_options(highlight PRIVATE -fconcepts-diagnostics-depth=5)

@@ -7,7 +7,7 @@
 
 #include "math.hpp"
 
-namespace tess
+namespace pi
 {
 enum class HexTop { Flat, Pointed };
 

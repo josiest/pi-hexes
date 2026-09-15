@@ -1,4 +1,4 @@
-#include "tess/tess.hpp"
+#include "pi/hexes.hpp"
 #include "SFML/Window.hpp"
 #include "SFML/Graphics.hpp"
 #include "SFML/System.hpp"
@@ -24,8 +24,8 @@ struct example_settings
 };
 
 // convert a hex coordinate to an sfml shape
-template<typename Point> requires tess::axial<Point> or tess::cartesian<Point>
-static sf::ConvexShape hex_shape(const tess::fbasis& basis, const Point & hex)
+template<typename Point> requires pi::axial<Point> or pi::cartesian<Point>
+static sf::ConvexShape hex_shape(const pi::fbasis& basis, const Point & hex)
 {
     sf::ConvexShape shape{6};
     // if sf::Shape had begin() -> output_iterator<Vector2f>
@@ -48,18 +48,18 @@ int main()
     static constexpr simple::example_settings example_settings;
 
     // Create the basis for the grid, centered in the middle of the screen
-    const tess::fbasis basis
+    const pi::fbasis basis
     {
         static_cast<float>(window_settings.dimensions.x)/2.f,
         static_cast<float>(window_settings.dimensions.y)/2.f,
         example_settings.unit_size,
-        tess::HexTop::Flat
+        pi::HexTop::Flat
     };
 
     // initialize the hexes we're working with
     // and set some basic graphical settings
     std::vector<sf::Vector2i> hexes;
-    tess::hex_range(sf::Vector2i(0, 0), 3, std::back_inserter(hexes));
+    pi::hex_range(sf::Vector2i(0, 0), 3, std::back_inserter(hexes));
 
     std::vector<sf::ConvexShape> shapes;
     shapes.reserve(hexes.size());

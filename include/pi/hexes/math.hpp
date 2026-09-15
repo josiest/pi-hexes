@@ -2,7 +2,7 @@
 
 #include <concepts>
 
-namespace tess {
+namespace pi {
 template<typename T>
 concept numeric = std::integral<std::remove_cvref_t<T>> or std::floating_point<std::remove_cvref_t<T>>;
 
