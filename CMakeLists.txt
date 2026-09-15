@@ -21,10 +21,10 @@ target_sources(pi-hexes
     INTERFACE FILE_SET HEADERS
     BASE_DIRS include
     FILES
-       ${CMAKE_SOURCE_DIR}/include/pi/hexes/basis.hpp
-       ${CMAKE_SOURCE_DIR}/include/pi/hexes/hex.hpp
-       ${CMAKE_SOURCE_DIR}/include/pi/hexes/math.hpp
-       ${CMAKE_SOURCE_DIR}/include/pi/hexes.hpp)
+       include/pi/hexes/basis.hpp
+       include/pi/hexes/hex.hpp
+       include/pi/hexes/math.hpp
+       include/pi/hexes.hpp)
 
 #
 # Export and install library targets

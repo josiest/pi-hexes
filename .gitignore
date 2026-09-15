@@ -74,3 +74,4 @@ tags
 build/
 .idea/
 cmake-build-debug/
+print_install_message.bat

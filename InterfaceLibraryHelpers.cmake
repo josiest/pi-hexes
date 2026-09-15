@@ -9,7 +9,7 @@ function(install_pi_interface_targets TARGET_NAME)
 
     install(TARGETS pi-${TARGET_NAME}
             EXPORT pi-${TARGET_NAME}-targets
-            FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_LIBDIR})
+            FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
     export(EXPORT pi-${TARGET_NAME}-targets
             FILE ${CMAKE_CURRENT_BINARY_DIR}/pi-${TARGET_NAME}-targets.cmake
