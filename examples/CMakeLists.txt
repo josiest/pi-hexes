@@ -1,22 +1,14 @@
-# set cmake and compiler options
-cmake_minimum_required(VERSION 3.8)
-project(tess_example)
+set(CMAKE_CXX_STANDARD 23)
 
 # find the SFML library
-find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
+set(SFML_STATIC_LIBRARIES ON)
+find_package(SFML COMPONENTS System Graphics Window)
 
 # compilation target for simple example
 add_executable(simple src/simple.cpp)
-target_link_libraries(simple PRIVATE sfml-graphics sfml-window sfml-system)
-target_include_directories(simple PRIVATE include)
-set_target_properties(simple PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED TRUE)
+target_link_libraries(simple PRIVATE SFML::System SFML::Window SFML::Graphics tess::tess)
 
 # compilation target for highlight example
 add_executable(highlight src/highlight.cpp)
-target_link_libraries(highlight PRIVATE sfml-graphics sfml-window sfml-system)
-target_include_directories(highlight PRIVATE include)
-set_target_properties(highlight PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED TRUE)
+target_link_libraries(highlight PRIVATE sfml-graphics sfml-system sfml-window tess::tess)
+target_compile_options(highlight PRIVATE -fconcepts-diagnostics-depth=5)

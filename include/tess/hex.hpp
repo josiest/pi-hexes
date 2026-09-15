@@ -1,11 +1,11 @@
 #pragma once
 
-#include <type_traits>  // is_arithmetic
 #include <cmath>        // abs, sqrt, sqrtf
 #include <algorithm>    // max_element
 #include <numeric>
 #include <valarray>
 #include <iterator>
+#include <ranges>
 
 #include "math.hpp"
 #include <tuple>
@@ -34,87 +34,80 @@ namespace tess {
  * ```
  */
 template<numeric Field>
-struct hex {
-    /** The s component of this hex. */
-    Field s() const noexcept { return -q-r; }
+struct hex
+{
     Field q, r;
-
-    /** The zero hex */
-    static hex<Field> const zero;
-
-    /** The hex associated with the direction "left and up" */
-    static hex<Field> const left_up;
-
-    /** The hex associated with the direction "forward and left" */
-    static hex<Field> const forward_left;
-
-    /** The hex associated with the direction "forward and down" */
-    static hex<Field> const forward_down;
-
-    /** The hex associated with the direction "right and down" */
-    static hex<Field> const right_down;
-
-    /** The hex associated with the direction "back and right" */
-    static hex<Field> const back_right;
-
-    /** The hex associated with the direction "back and up" */
-    static hex<Field> const back_up;
 };
-
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::zero{0, 0};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::left_up{0, -1};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::forward_left{1, -1};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::forward_down{1, 0};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::right_down{0, 1};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::back_right{-1, 1};
-template<numeric Field>
-constexpr hex<Field> const hex<Field>::back_up{-1, 0};
 
 template<numeric Field>
 hex(Field, Field) -> hex<Field>;
 
+template<axial Point>
+constexpr scalar_field_t<Point> hex_q_value(const Point & p) { return p.q; }
+
+template<axial Point>
+constexpr scalar_field_t<Point> hex_r_value(const Point & p) { return p.r; }
+
+template<axial Point>
+constexpr scalar_field_t<Point> hex_s_value(const Point & p) { return -p.q - p.r; }
+
+template<cartesian Point>
+constexpr scalar_field_t<Point> hex_q_value(const Point & p) { return p.x; }
+
+template<cartesian Point>
+constexpr scalar_field_t<Point> hex_r_value(const Point & p) { return p.y; }
+
+template<cartesian Point>
+constexpr scalar_field_t<Point> hex_s_value(const Point & p) { return -p.x - p.y; }
+
 /**
  * Calculate the hex norm of h.
  *
- * This is equivalent to \f$\frac{|h_q| + |h_r| + |h_s|}{2}\f$
+ * Equivalent to \f$\frac{|h_q| + |h_r| + |h_s|}{2}\f$
  */
-template<numeric Field>
-Field hex_norm(const hex<Field>& h) noexcept
+template<coordinate Point>
+scalar_field_t<Point> hex_norm(const Point & p) noexcept
 {
-    return (std::abs(h.q) + std::abs(h.r) + std::abs(h.s()))/2;
+    return (std::abs(hex_q_value(p)) + std::abs(hex_r_value(p)) + std::abs(hex_s_value(p)))/2;
 }
+
 
 /**
  * Calculate the hex with the minimum distance to `h` who's components are
  * integers.
  */
-template<std::integral Integer, std::floating_point Real>
-hex<Integer> hex_round(const hex<Real>& h)
+template<coordinate OutPoint, coordinate InPoint>
+OutPoint nearest_hex(const InPoint & p)
 {
-    // convert hex to valarray for easy operations
-    std::valarray<Real> v{h.q, h.r, h.s()};
+    using InField = scalar_field_t<InPoint>;
+    std::valarray<InField> hex_values{ hex_q_value(p), hex_r_value(p), hex_s_value(p) };
 
-    // round each component
-    auto rv = v;
-    std::transform(std::begin(v), std::end(v), std::begin(rv),
-                   [](Real e) { return std::round(e); });
+    auto rounded_hex_values = hex_values;
+    std::ranges::transform(hex_values, std::begin(rounded_hex_values),
+                           [](const auto e) { return std::round(e); });
 
-    // take the difference between the original and the rounded
-    std::valarray<Real> dv{std::abs(rv-v)};
+    std::valarray<InField> differences{ std::abs(rounded_hex_values - hex_values) };
 
-    // find the max difference and correct it
-    auto i = std::distance(std::begin(dv),
-                           std::max_element(std::begin(dv), std::end(dv)));
-    rv[i] -= std::accumulate(std::begin(rv), std::end(rv), 0);
+    auto i = std::distance(std::begin(differences), std::ranges::max_element(differences));
+    rounded_hex_values[i] -= std::accumulate(std::begin(rounded_hex_values), std::end(rounded_hex_values), 0.f);
 
-    return hex<Integer>{static_cast<Integer>(rv[0]),
-                        static_cast<Integer>(rv[1])};
+    using OutField = scalar_field_t<OutPoint>;
+    return OutPoint{ static_cast<OutField>(rounded_hex_values[0]),
+                     static_cast<OutField>(rounded_hex_values[1]) };
+}
+
+template<typename Point>
+requires (axial<Point> or cartesian<Point>) and std::floating_point<scalar_field_t<Point>>
+Point lerp(const Point & a, const Point & b, scalar_field_t<Point> t)
+{
+    if constexpr (axial<Point>)
+    {
+        return Point{ std::lerp(a.q, b.q, t), std::lerp(a.r, b.r, t) };
+    }
+    else
+    {
+        return Point{ std::lerp(a.x, b.x, t), std::lerp(a.y, b.y, t) };
+    }
 }
 
 /**
@@ -123,22 +116,34 @@ hex<Integer> hex_round(const hex<Real>& h)
  * The coordinates are calculated by finding the the nearest hex coordinates
  * with integer components to the line segment between a and b.
  */
-template<axial Hex, std::indirectly_writable<Hex> Out>
-requires std::integral<scalar_field_t<Hex>> and std::weakly_incrementable<Out>
-auto line(const Hex& a, const Hex& b, Out into_hexes) noexcept
+template<coordinate Hex, std::output_iterator<Hex> HexOutput>
+requires std::integral<scalar_field_t<Hex>>
+HexOutput line(const Hex& a, const Hex& b, HexOutput into_hexes) noexcept
 {
     using Integer = scalar_field_t<Hex>;
-    auto lerp = [](double a, double b, double t) {
-        return a + (b - a) * t;
+    const hex real_a
+    {
+        .q = static_cast<float>(hex_q_value(a)),
+        .r = static_cast<float>(hex_r_value(a))
     };
-    auto hex_lerp = [&lerp](const Hex& a, const Hex& b, double t) {
-        return hex{ lerp(a.q, b.q, t), lerp(a.r, b.r, t) };
+    const hex real_b
+    {
+        .q = static_cast<float>(hex_q_value(b)),
+        .r = static_cast<float>(hex_r_value(b))
     };
 
-    Integer const n = hex_norm(a-b);
+    const Hex difference
+    {
+        hex_q_value(a)-hex_q_value(b),
+        hex_r_value(a)-hex_r_value(b)
+    };
+
+    const Integer n = hex_norm(difference);
     *into_hexes++ = a;
-    for (int i = 1; i < n; i++) {
-        *into_hexes++ = hex_round<Integer>(hex_lerp(a, b, i/(double)n));
+    for (int i = 1; i < n; i++)
+    {
+        const float t = static_cast<float>(i)/static_cast<float>(n);
+        *into_hexes++ = nearest_hex<Hex>(lerp(real_a, real_b, t));
     }
     *into_hexes++ = b;
     return into_hexes;
@@ -149,16 +154,16 @@ auto line(const Hex& a, const Hex& b, Out into_hexes) noexcept
  *
  * \note A hex coordinate `a` is within radius `r` of `b` if
  *       `hex_norm(a-b) <= r`.
- *
- * \throws std::invalid_argument if r is negative.
  */
-template<axial Hex, std::indirectly_writable<Hex> Out>
-requires std::integral<scalar_field_t<Hex>> and std::weakly_incrementable<Out>
-auto hex_range(const Hex& center, scalar_field_t<Hex> r, Out into_hexes)
+template<typename Hex, std::output_iterator<Hex> HexOutput>
+requires (axial<Hex> or cartesian<Hex>) and std::integral<scalar_field_t<Hex>>
+HexOutput hex_range(const Hex& center, scalar_field_t<Hex> r, HexOutput into_hexes)
 {
     using Integer = scalar_field_t<Hex>;
-    for (Integer i = -r; i <= r; ++i) {
-        for (Integer j = std::max(-r, -r-i); j <= std::min(r, r-i); j++) {
+    for (Integer i = -r; i <= r; ++i)
+    {
+        for (Integer j = std::max(-r, -r-i); j <= std::min(r, r-i); ++j)
+        {
             *into_hexes++ = center + Hex{i, j};
         }
     }
@@ -205,19 +210,16 @@ struct std::tuple_size<tess::hex<Field>> {
 template<std::size_t i, typename Field>
 requires (i < 2)
 struct std::tuple_element<i, tess::hex<Field>> {
-    using type = typename std::add_const<Field>::type;
+    using type = std::add_const_t<Field>;
 };
 
-namespace std {
-
 template <tess::numeric Field>
-    struct hash<tess::hex<Field>> {
-        size_t operator()(const tess::hex<Field>& h) const {
-            hash<double> dhash;
-            size_t hq = dhash(static_cast<double>(h.q));
-            size_t hr = dhash(static_cast<double>(h.r));
-            return hq ^ (hr + 0x9e3779b9 + (hq << 6) + (hq >> 2));
-        }
-    };
-
-}
+struct std::hash<tess::hex<Field>> {
+    size_t operator()(const tess::hex<Field>& h) const
+    {
+        constexpr hash<double> double_hash;
+        size_t hq = double_hash(static_cast<double>(h.q));
+        size_t hr = double_hash(static_cast<double>(h.r));
+        return hq ^ (hr + 0x9e3779b9 + (hq << 6) + (hq >> 2));
+    }
+};

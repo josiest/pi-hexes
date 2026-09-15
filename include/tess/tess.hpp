@@ -1,5 +1,5 @@
 #pragma once
 
-#include "point.hpp"
+#include "math.hpp"
 #include "hex.hpp"
 #include "basis.hpp"
