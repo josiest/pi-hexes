@@ -1,17 +1,29 @@
 #pragma once
 
+// math and algorithms
 #include <cmath>        // abs, sqrt, sqrtf
 #include <algorithm>    // max_element
 #include <numeric>
-#include <valarray>
+
+// containers and types
+#include <array>
 #include <iterator>
 #include <ranges>
 
-#include "math.hpp"
 #include <tuple>
 #include <cstddef>
 
+// hex library
+#include "math.hpp"
+
+#include <pi/geometry.hpp>
+
 namespace pi {
+
+enum class HexTop{ Pointed, Flat };
+
+template<std::floating_point Field>
+static constexpr Field sqrt3 = 1.73205;
 
 /**
  * A representation of a hexagonal coordinate.
@@ -51,14 +63,54 @@ constexpr scalar_field_t<Point> hex_r_value(const Point & p) { return p.r; }
 template<axial Point>
 constexpr scalar_field_t<Point> hex_s_value(const Point & p) { return -p.q - p.r; }
 
-template<cartesian Point>
+template<euclidean_vector2 Point>
 constexpr scalar_field_t<Point> hex_q_value(const Point & p) { return p.x; }
 
-template<cartesian Point>
+template<euclidean_vector2 Point>
 constexpr scalar_field_t<Point> hex_r_value(const Point & p) { return p.y; }
 
-template<cartesian Point>
+template<euclidean_vector2 Point>
 constexpr scalar_field_t<Point> hex_s_value(const Point & p) { return -p.x - p.y; }
+
+/**
+ * Compute the affine basis vectors for hex-space in 2 dimensions
+ * \note outputs a row-major 3x3 matrix into_elements
+ *       that transforms 2d affine cartesian coordinates into 2d affine axial hex coordinates
+ */
+template<std::floating_point Field, std::output_iterator<Field> FieldOutput>
+FieldOutput hex_basis2d(HexTop top_style, FieldOutput into_elements)
+{
+    auto basis = top_style == HexTop::Pointed?
+        std::array{ sqrt3<Field>, sqrt3<Field>/2, Field(0),
+                    Field(0), 3/Field(2), Field(0),
+                    Field(0), Field(0), Field(1) }
+
+      : std::array{  3/Field(2), Field(0), Field(0),
+                     sqrt3<Field>/2, sqrt3<Field>, Field(0),
+                     Field(0), Field(0), Field(1) };
+
+    return std::ranges::copy(basis, into_elements).out;
+}
+
+/**
+ * Compute the affine inverse basis vectors for hex-space in 2-dimensions
+ * \note outputs a row-major 3x3 matrix into_elements
+ *       that transforms 2d affine axial hex coordinates into 2d affine cartesian coordinates
+ */
+template<std::floating_point Field, std::output_iterator<Field> FieldOutput>
+FieldOutput inverse_hex_basis2d(HexTop top_style, FieldOutput into_elements)
+{
+    auto basis = top_style == HexTop::Pointed?
+        std::array{ sqrt3<Field>/3, -1/Field(3), Field(0),
+                    Field(0), 2/Field(3), Field(0),
+                    Field(0), Field(0), Field(1) }
+
+    : std::array{  2/Field(3), Field(0), Field(0),
+                   -1/Field(3), sqrt3<Field>/3, Field(0),
+                   Field(0), Field(0), Field(1) };
+
+    return std::ranges::copy(basis, into_elements).out;
+}
 
 /**
  * Calculate the hex norm of h.
@@ -73,14 +125,12 @@ scalar_field_t<Point> hex_norm(const Point & p) noexcept
 
 
 /**
- * Calculate the hex with the minimum distance to `h` who's components are
- * integers.
+ * Calculate the hex with the minimum distance to `p` who's components are integers.
  */
-template<coordinate OutPoint, coordinate InPoint>
-OutPoint nearest_hex(const InPoint & p)
+template<coordinate OutPoint, numeric InField>
+OutPoint nearest_hex(InField x, InField y)
 {
-    using InField = scalar_field_t<InPoint>;
-    std::valarray<InField> hex_values{ hex_q_value(p), hex_r_value(p), hex_s_value(p) };
+    std::valarray<InField> hex_values{ x, y, -x-y };
 
     auto rounded_hex_values = hex_values;
     std::ranges::transform(hex_values, std::begin(rounded_hex_values),
@@ -95,9 +145,13 @@ OutPoint nearest_hex(const InPoint & p)
     return OutPoint{ static_cast<OutField>(rounded_hex_values[0]),
                      static_cast<OutField>(rounded_hex_values[1]) };
 }
+template<coordinate OutPoint, coordinate InPoint>
+OutPoint nearest_hex(const InPoint & p)
+{
+    return nearest_hex<OutPoint>(hex_q_value(p), hex_r_value(p));
+}
 
-template<typename Point>
-requires (axial<Point> or cartesian<Point>) and std::floating_point<scalar_field_t<Point>>
+template<coordinate Point>
 Point lerp(const Point & a, const Point & b, scalar_field_t<Point> t)
 {
     if constexpr (axial<Point>)
@@ -155,19 +209,40 @@ HexOutput line(const Hex& a, const Hex& b, HexOutput into_hexes) noexcept
  * \note A hex coordinate `a` is within radius `r` of `b` if
  *       `hex_norm(a-b) <= r`.
  */
-template<typename Hex, std::output_iterator<Hex> HexOutput>
-requires (axial<Hex> or cartesian<Hex>) and std::integral<scalar_field_t<Hex>>
+template<coordinate Hex, std::output_iterator<Hex> HexOutput>
 HexOutput hex_range(const Hex& center, scalar_field_t<Hex> r, HexOutput into_hexes)
 {
-    using Integer = scalar_field_t<Hex>;
-    for (Integer i = -r; i <= r; ++i)
+    using Field = scalar_field_t<Hex>;
+    for (Field i = -r; i <= r; i += Field(1))
     {
-        for (Integer j = std::max(-r, -r-i); j <= std::min(r, r-i); ++j)
+        for (Field j = std::max(-r, -r-i); j <= std::min(r, r-i); j += Field(1))
         {
             *into_hexes++ = center + Hex{i, j};
         }
     }
     return into_hexes;
+}
+
+/** Calculate the vertices of `p` in cartesian space */
+template<euclidean_vector2 Point, std::output_iterator<Point> PointOutput>
+requires std::floating_point<scalar_field_t<Point>>
+PointOutput hex_vertices(HexTop hex_style, PointOutput into_verts)
+{
+    using Field = scalar_field_t<Point>;
+    static constexpr Field pi = std::numbers::pi_v<Field>;
+
+    const Field offset = hex_style == HexTop::Pointed? pi/6 : 0;
+
+    // add each vertex to the list
+    for (int i = 0; i < 6; ++i)
+    {
+        // calculate the angle of the vertex
+        Field theta = offset + i * pi/3;
+
+        // convert the angle to unit vector, then scale and offset
+        *into_verts++ = Point{ std::cos(theta), std::sin(theta) };
+    }
+    return into_verts;
 }
 
 template<numeric Field>

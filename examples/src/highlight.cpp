@@ -6,6 +6,9 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <iostream>
+
+#include <pi/geometry.hpp>
 
 namespace highlight
 {
@@ -18,7 +21,7 @@ struct window_settings
 
 struct world_settings
 {
-    float unit_size = 30.f;
+    float pixels_per_unit = 30.f;
 };
 }
 
@@ -35,15 +38,15 @@ struct std::hash<sf::Vector2i>
 };
 
 // convert a hex coordinate to sfml shape
-template<typename Hex> requires pi::axial<Hex> or pi::cartesian<Hex>
-sf::ConvexShape hex_shape(const pi::fbasis& basis, const Hex& hex)
+sf::ConvexShape hex_shape(pi::HexTop hex_style, const pi::transform2f & pixel_from_world, const sf::Vector2f & p)
 {
     std::array<sf::Vector2f, 6> verts;
-    basis.vertices<sf::Vector2f>(hex, verts.begin());
+    pi::hex_vertices<sf::Vector2f>(hex_style, verts.begin());
 
     sf::ConvexShape shape{6};
-    for (int i = 0; i < verts.size(); i++) {
-        shape.setPoint(i, verts[i]);
+    for (int i = 0; i < verts.size(); i++)
+    {
+        shape.setPoint(i, pixel_from_world * (p + verts[i]));
     }
     return shape;
 }
@@ -51,14 +54,17 @@ sf::ConvexShape hex_shape(const pi::fbasis& basis, const Hex& hex)
 class highlight_system {
 public:
     using HexCoord = sf::Vector2i;
+    highlight_system(pi::HexTop hex_style, float width, float height, float unit_size);
 
-    explicit highlight_system(const pi::fbasis& basis);
     void on_mouse_move(int x, int y);
     void on_mouse_pressed(int x, int y);
     void on_mouse_released();
     void draw(sf::RenderWindow& window);
 
-    pi::fbasis basis;
+    std::valarray<float> world_from_hex;
+    pi::transform2f pixel_from_world;
+
+    pi::HexTop hex_style;
 
     // all hex shapes to be drawn
     using ShapeEntry = std::pair<HexCoord, sf::ConvexShape>;
@@ -74,9 +80,15 @@ public:
     std::unordered_set<HexCoord> clicked_range;
 };
 
-highlight_system::highlight_system(const pi::fbasis& basis)
-    : basis{ basis }
+highlight_system::highlight_system(pi::HexTop hex_style, float width, float height, float unit_size)
+    : world_from_hex(9),
+      hex_style(hex_style)
 {
+    pi::hex_basis2d<float>(hex_style, std::begin(world_from_hex));
+
+    pixel_from_world.scale(unit_size);
+    pixel_from_world.translation(width/2.f, height/2.f);
+
     // initialize the set of hexes we're working with
     // and set some basic graphical settings
     std::vector<HexCoord> hexes;
@@ -84,7 +96,8 @@ highlight_system::highlight_system(const pi::fbasis& basis)
 
     for (const auto & hex : hexes)
     {
-        auto & [_, shape] = shapes.emplace_back(hex, hex_shape(basis, hex));
+        const auto p = pi::matvec_mul(world_from_hex, hex);
+        auto & [_, shape] = shapes.emplace_back(hex, hex_shape(hex_style, pixel_from_world.local(), p));
         shape.setOutlineColor(sf::Color::Black);
         shape.setOutlineThickness(1.0f);
     }
@@ -94,7 +107,13 @@ void highlight_system::on_mouse_move(int x, int y)
 {
     // convert the sfml point to a pi point
     // and round it to the nearest hex
-    hovered = pi::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
+    const auto xf = static_cast<float>(x); const auto yf = static_cast<float>(y);
+    std::cout << "pixel coordinate (" << x << ", " << y << ")\n";
+    const auto world_coord = pixel_from_world.local().inverse(sf::Vector2f(xf, yf));
+    std::cout << "world coordinate (" << std::format("{:.1f}, {:.1f}", world_coord.x, world_coord.y) << ")\n";
+    const auto cts_hex = pixel_from_world.inverse(sf::Vector2f(xf, yf));
+    hovered = pi::nearest_hex<HexCoord>(cts_hex);
+    std::cout << "hex coordinate (" << hovered->x << ", " << hovered->y << ")\n";
 
     // if the mouse button is down, update the line from the
     // clicked hex to the hovered hex
@@ -109,7 +128,8 @@ void highlight_system::on_mouse_move(int x, int y)
 void highlight_system::on_mouse_pressed(int x, int y)
 {
     // keep track of the clicked coordinate when the mouse button gets pressed
-    clicked = pi::nearest_hex<HexCoord>(basis.hex<sf::Vector2f>(x, y));
+    const auto xf = static_cast<float>(x); const auto yf = static_cast<float>(y);
+    clicked = pi::nearest_hex<HexCoord>(pixel_from_world.inverse(sf::Vector2f(xf, yf)));
 }
 
 void highlight_system::on_mouse_released()
@@ -140,14 +160,10 @@ int main()
                              window_settings.name, window_settings.style };
 
     // Create the basis for the grid - centered in the middle of the screen
-    const pi::fbasis basis
-    {
-        static_cast<float>(window_settings.dimensions.x)/2.f,
-        static_cast<float>(window_settings.dimensions.y)/2.f,
-        world_settings.unit_size,
-        pi::HexTop::Pointed
-    };
-    highlight_system system(basis);
+    highlight_system system(pi::HexTop::Pointed,
+                            static_cast<float>(window_settings.dimensions.x)/2.f,
+                            static_cast<float>(window_settings.dimensions.y)/2.f,
+                            world_settings.pixels_per_unit);
 
     while (window.isOpen())
     {

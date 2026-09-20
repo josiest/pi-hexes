@@ -3,10 +3,12 @@ set(CMAKE_CXX_STANDARD 23)
 # find the SFML library
 set(SFML_STATIC_LIBRARIES ON)
 find_package(SFML COMPONENTS System Graphics Window)
+find_package(pi-affine-transforms REQUIRED)
 
 # compilation target for simple example
 add_executable(simple src/simple.cpp)
-target_link_libraries(simple PRIVATE SFML::System SFML::Window SFML::Graphics pi::hexes)
+target_link_libraries(simple PRIVATE SFML::System SFML::Window SFML::Graphics pi::hexes pi::affine-transforms)
+target_compile_options(simple PRIVATE -fconcepts-diagnostics-depth=5)
 
 # compilation target for highlight example
 add_executable(highlight src/highlight.cpp)
