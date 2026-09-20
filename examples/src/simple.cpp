@@ -9,8 +9,6 @@
 #include <array>
 #include <string>
 
-#include <iostream>
-
 namespace simple
 {
 struct window_settings
