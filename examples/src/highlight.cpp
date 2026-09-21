@@ -61,17 +61,21 @@ sf::ConvexShape hex_shape(pi::HexTop hex_style, const pi::transform2f & pixel_fr
 }
 
 enum class Axis { X, Y };
+static constexpr sf::Color x_color{ 0x00, 0x99, 0xff };
+static constexpr sf::Color y_color{ 0x66, 0xff, 0x99 };
+static constexpr sf::Color hover_color{ sf::Color::Cyan.r, sf::Color::Cyan.b, sf::Color::Cyan.g, 0x44 };
+static constexpr sf::Color fill_color{ 0xfa, 0xf9, 0xf6, 0xff };
+static constexpr sf::Color x_fill_color{ x_color.r, x_color.g, x_color.b, 0x22 };
+static constexpr sf::Color y_fill_color{ y_color.r, y_color.g, y_color.b, 0x22 };
 
 class axis_line
 {
 public:
     axis_line() = default;
     axis_line(const pi::transform2f & basis, Axis axis);
-    void draw(sf::RenderWindow & window);
+    void draw(sf::RenderWindow & window) const;
 private:
     static constexpr int axis_size = 20;
-    static constexpr sf::Color x_color = sf::Color::Black;
-    static constexpr sf::Color y_color = sf::Color::Black;
     std::array<sf::Vertex, 2> line;
 };
 
@@ -89,7 +93,7 @@ axis_line::axis_line(const pi::transform2f & basis, Axis axis)
     }
 }
 
-void axis_line::draw(sf::RenderWindow & window)
+void axis_line::draw(sf::RenderWindow & window) const
 {
     window.draw(line.data(), line.size(), sf::PrimitiveType::Lines);
 }
@@ -184,11 +188,34 @@ void highlight_system::on_mouse_released()
 
 void highlight_system::draw(sf::RenderWindow & window)
 {
+    std::optional<sf::Vector2i> x_projection;
+    std::optional<sf::Vector2i> y_projection;
+    if (hovered)
+    {
+        x_projection = hovered;
+        x_projection->x = 0;
+        y_projection = hovered;
+        y_projection->y = 0;
+    }
     for (auto & [hex_coord, shape] : shapes)
     {
         // color selected tiles cyan and non selected tiles white
-        shape.setFillColor(hex_coord == hovered or clicked_range.contains(hex_coord)?
-                           sf::Color::Cyan : sf::Color::White);
+        if (hex_coord == hovered or clicked_range.contains(hex_coord))
+        {
+            shape.setFillColor(hover_color);
+        }
+        else if (hex_coord == x_projection)
+        {
+            shape.setFillColor(y_fill_color);
+        }
+        else if (hex_coord == y_projection)
+        {
+            shape.setFillColor(x_fill_color);
+        }
+        else
+        {
+            shape.setFillColor(fill_color);
+        }
         window.draw(shape);
     }
     x_axis.draw(window);
@@ -201,9 +228,11 @@ int main()
     const highlight::window_settings window_settings;
     const highlight::ui_settings ui_settings;
     constexpr highlight::world_settings world_settings;
+    sf::ContextSettings context_settings;
+    context_settings.antiAliasingLevel = 8;
 
     sf::RenderWindow window{ sf::VideoMode(window_settings.dimensions),
-                             window_settings.name, window_settings.style };
+                             window_settings.name, window_settings.style, sf::State::Windowed, context_settings };
 
     // Create the basis for the grid - centered in the middle of the screen
     highlight_system system(pi::HexTop::Pointed,
@@ -221,7 +250,6 @@ int main()
         text.setFillColor(sf::Color::Black);
         text.setPosition(system.pixel_from_world * as_float(hex));
     }
-    static constexpr auto line_color = sf::Color::Black;
     while (window.isOpen())
     {
         while (const auto event = window.pollEvent())
@@ -249,7 +277,7 @@ int main()
                 }
             }
         }
-        window.clear();
+        window.clear(fill_color);
         system.draw(window);
         for (const auto & coordinate_label : coordinate_labels)
         {
@@ -262,8 +290,8 @@ int main()
 
             std::array mouse_x_line
             {
-                sf::Vertex(system.pixel_from_world * y_projection, line_color),
-                sf::Vertex(as_float(mouse), line_color),
+                sf::Vertex(system.pixel_from_world * y_projection, x_color),
+                sf::Vertex(as_float(mouse), x_color),
             };
             window.draw(mouse_x_line.begin(), mouse_x_line.size(), sf::PrimitiveType::Lines);
 
@@ -271,8 +299,8 @@ int main()
             x_projection.y = 0;
             std::array mouse_y_line
             {
-                sf::Vertex(system.pixel_from_world * x_projection, line_color),
-                sf::Vertex(as_float(mouse), line_color),
+                sf::Vertex(system.pixel_from_world * x_projection, y_color),
+                sf::Vertex(as_float(mouse), y_color),
             };
             window.draw(mouse_y_line.begin(), mouse_y_line.size(), sf::PrimitiveType::Lines);
         }
