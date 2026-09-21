@@ -60,6 +60,40 @@ sf::ConvexShape hex_shape(pi::HexTop hex_style, const pi::transform2f & pixel_fr
     return shape;
 }
 
+enum class Axis { X, Y };
+
+class axis_line
+{
+public:
+    axis_line() = default;
+    axis_line(const pi::transform2f & basis, Axis axis);
+    void draw(sf::RenderWindow & window);
+private:
+    static constexpr int axis_size = 20;
+    static constexpr sf::Color x_color = sf::Color::Black;
+    static constexpr sf::Color y_color = sf::Color::Black;
+    std::array<sf::Vertex, 2> line;
+};
+
+axis_line::axis_line(const pi::transform2f & basis, Axis axis)
+{
+    if (axis == Axis::X)
+    {
+        line[0] = sf::Vertex(basis * sf::Vector2f(-axis_size, 0.f), x_color);
+        line[1] = sf::Vertex(basis * sf::Vector2f(axis_size, 0.f), x_color);
+    }
+    else
+    {
+        line[0] = sf::Vertex(basis * sf::Vector2f(0.f, -axis_size), y_color);
+        line[1] = sf::Vertex(basis * sf::Vector2f(0.f, axis_size), y_color);
+    }
+}
+
+void axis_line::draw(sf::RenderWindow & window)
+{
+    window.draw(line.data(), line.size(), sf::PrimitiveType::Lines);
+}
+
 class highlight_system {
 public:
     using HexCoord = sf::Vector2i;
@@ -72,8 +106,10 @@ public:
 
     pi::transform2f world_from_hex;
     pi::transform2f pixel_from_world;
-
     pi::HexTop hex_style;
+
+    axis_line x_axis;
+    axis_line y_axis;
 
     // all hex shapes to be drawn
     using ShapeEntry = std::pair<HexCoord, sf::ConvexShape>;
@@ -97,6 +133,9 @@ highlight_system::highlight_system(pi::HexTop hex_style, float width, float heig
     pixel_from_world.scale(unit_size);
     pixel_from_world.translation(width/2.f, height/2.f);
     pixel_from_world.parent = &world_from_hex;
+
+    x_axis = axis_line(pixel_from_world, Axis::X);
+    y_axis = axis_line(pixel_from_world, Axis::Y);
 
     // initialize the set of hexes we're working with
     // and set some basic graphical settings
@@ -152,6 +191,8 @@ void highlight_system::draw(sf::RenderWindow & window)
                            sf::Color::Cyan : sf::Color::White);
         window.draw(shape);
     }
+    x_axis.draw(window);
+    y_axis.draw(window);
 }
 
 int main()
