@@ -221,6 +221,7 @@ int main()
         text.setFillColor(sf::Color::Black);
         text.setPosition(system.pixel_from_world * as_float(hex));
     }
+    static constexpr auto line_color = sf::Color::Black;
     while (window.isOpen())
     {
         while (const auto event = window.pollEvent())
@@ -253,6 +254,27 @@ int main()
         for (const auto & coordinate_label : coordinate_labels)
         {
             window.draw(coordinate_label);
+        }
+        {
+            const auto mouse = sf::Mouse::getPosition(window);
+            auto y_projection = system.pixel_from_world.inverse(as_float(mouse));
+            y_projection.x = 0;
+
+            std::array mouse_x_line
+            {
+                sf::Vertex(system.pixel_from_world * y_projection, line_color),
+                sf::Vertex(as_float(mouse), line_color),
+            };
+            window.draw(mouse_x_line.begin(), mouse_x_line.size(), sf::PrimitiveType::Lines);
+
+            auto x_projection = system.pixel_from_world.inverse(as_float(mouse));
+            x_projection.y = 0;
+            std::array mouse_y_line
+            {
+                sf::Vertex(system.pixel_from_world * x_projection, line_color),
+                sf::Vertex(as_float(mouse), line_color),
+            };
+            window.draw(mouse_y_line.begin(), mouse_y_line.size(), sf::PrimitiveType::Lines);
         }
         window.display();
     }
