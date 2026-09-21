@@ -3,10 +3,8 @@
 // math and algorithms
 #include <cmath>        // abs, sqrt, sqrtf
 #include <algorithm>    // max_element
-#include <numeric>
 
 // containers and types
-#include <array>
 #include <iterator>
 
 #include <pi/geometry.hpp>
@@ -61,25 +59,28 @@ scalar_field_t<Point> hex_norm(const Point & p) noexcept
 /**
  * Calculate the hex with the minimum distance to `p` who's components are integers.
  */
-template<euclidean_vector2 OutPoint, numeric InField>
-requires std::floating_point<InField>
+template<euclidean_vector2 OutPoint, std::floating_point InField>
 OutPoint nearest_hex(InField x, InField y)
 {
-    vec2 hex_values{ x, y, -x-y };
-    auto rounded_hex_values = hex_values;
+    const InField s = -x-y;
+    InField rounded_q = std::round(x);
+    InField rounded_r = std::round(y);
+    InField rounded_s = std::round(s);
 
-    std::ranges::transform(hex_values, std::begin(rounded_hex_values),
-                           [](const auto e) { return std::round(e); });
+    const InField q_diff = std::abs(rounded_q - x);
+    const InField r_diff = std::abs(rounded_r - y);
+    const InField s_diff = std::abs(rounded_s - s);
 
-    vec2 differences{ std::valarray(std::abs(rounded_hex_values.data - hex_values.data)) };
-
-    auto i = std::distance(std::begin(differences), std::ranges::max_element(differences));
-    rounded_hex_values.data[i] -= std::accumulate(std::begin(rounded_hex_values),
-                                                  std::end(rounded_hex_values), InField(0));
-
+    if (q_diff > r_diff and q_diff > s_diff)
+    {
+        rounded_q = -rounded_r-rounded_s;
+    }
+    else if (r_diff > s_diff)
+    {
+        rounded_r = -rounded_q-rounded_s;
+    }
     using OutField = scalar_field_t<OutPoint>;
-    return OutPoint{ static_cast<OutField>(rounded_hex_values.data[0]),
-                     static_cast<OutField>(rounded_hex_values.data[1]) };
+    return OutPoint{ static_cast<OutField>(rounded_q), static_cast<OutField>(rounded_r) };
 }
 template<euclidean_vector2 OutPoint, euclidean_vector2 InPoint>
 requires std::floating_point<scalar_field_t<InPoint>>
