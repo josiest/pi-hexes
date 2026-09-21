@@ -96,7 +96,7 @@ highlight_system::highlight_system(pi::HexTop hex_style, float width, float heig
 
     pixel_from_world.scale(unit_size);
     pixel_from_world.translation(width/2.f, height/2.f);
-    // pixel_from_world.parent = &world_from_hex;
+    pixel_from_world.parent = &world_from_hex;
 
     // initialize the set of hexes we're working with
     // and set some basic graphical settings
@@ -117,9 +117,7 @@ void highlight_system::on_mouse_move(int x, int y)
     // convert the sfml point to a pi point
     // and round it to the nearest hex
     const auto xf = static_cast<float>(x); const auto yf = static_cast<float>(y);
-    const auto world_coord = pixel_from_world.inverse(sf::Vector2f(xf, yf));
-    const auto cts_hex = world_from_hex.inverse(world_coord);
-    hovered = pi::nearest_hex<HexCoord>(cts_hex);
+    hovered = pi::nearest_hex<HexCoord>(pixel_from_world.inverse(sf::Vector2f(xf, yf)));
 
     // if the mouse button is down, update the line from the
     // clicked hex to the hovered hex
@@ -173,7 +171,15 @@ int main()
                             world_settings.pixels_per_unit);
 
     sf::Font font(ui_settings.font);
-
+    std::vector<sf::Text> coordinate_labels; coordinate_labels.reserve(system.shapes.size());
+    for (const auto & hex : system.shapes | std::views::keys)
+    {
+        auto & text = coordinate_labels.emplace_back(font);
+        text.setString(std::format("{}, {}", hex.x, hex.y));
+        text.setCharacterSize(12);
+        text.setFillColor(sf::Color::Black);
+        text.setPosition(system.pixel_from_world * as_float(hex));
+    }
     while (window.isOpen())
     {
         while (const auto event = window.pollEvent())
@@ -203,16 +209,9 @@ int main()
         }
         window.clear();
         system.draw(window);
-        for (const auto & hex : system.shapes | std::views::keys)
+        for (const auto & coordinate_label : coordinate_labels)
         {
-            sf::Text text(font);
-            text.setString(std::format("{}, {}", hex.x, hex.y));
-            text.setCharacterSize(12);
-            text.setFillColor(sf::Color::Black);
-            auto world_position = system.world_from_hex * as_float(hex);
-            auto pixel_position = system.pixel_from_world * world_position;
-            text.setPosition(pixel_position);
-            window.draw(text);
+            window.draw(coordinate_label);
         }
         window.display();
     }
