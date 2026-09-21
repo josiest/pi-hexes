@@ -52,9 +52,7 @@ int main()
     static constexpr auto hex_style = pi::HexTop::Flat;
 
     // Create the basis for the grid, centered in the middle of the screen
-    std::array<float, 9> hex_basis{ 0.f };
-    pi::hex_basis2d<float>(hex_style, std::begin(hex_basis));
-    const pi::transform2f world_from_hex(hex_basis);
+    const auto world_from_hex = pi::hex_basis2<float>(hex_style);
 
     pi::transform2f pixel_from_world;
     pixel_from_world.scale(example_settings.pixels_per_unit);

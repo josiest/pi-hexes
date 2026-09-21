@@ -43,8 +43,6 @@ affine_transform2<Field> hex_basis2(HexTop top_style)
     basis.y_basis(std::cos(y_offset_angle), std::sin(y_offset_angle));
     basis.scale_by(std::sqrt(3.f));
 
-    mat3x3 basis_mat;
-    std::copy(basis.begin(), basis.end(), std::begin(basis_mat.data));
     return basis;
 }
 

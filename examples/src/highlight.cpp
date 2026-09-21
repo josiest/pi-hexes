@@ -6,7 +6,6 @@
 #include <vector>
 #include <array>
 #include <cstdint>
-#include <iostream>
 
 #include <pi/geometry.hpp>
 
@@ -14,14 +13,19 @@ namespace highlight
 {
 struct window_settings
 {
-    std::string name = "Tess Highlight Example";
+    std::string name = "Hex Highlight Example";
     sf::Vector2u dimensions{ 800u, 600u };
     std::uint32_t style = sf::Style::Titlebar | sf::Style::Close;
 };
 
 struct world_settings
 {
-    float pixels_per_unit = 30.f;
+    float pixels_per_unit = 40.f;
+};
+
+struct ui_settings
+{
+    std::string font = "arial.ttf";
 };
 }
 
@@ -113,12 +117,9 @@ void highlight_system::on_mouse_move(int x, int y)
     // convert the sfml point to a pi point
     // and round it to the nearest hex
     const auto xf = static_cast<float>(x); const auto yf = static_cast<float>(y);
-    // std::cout << "pixel coordinate (" << x << ", " << y << ")\n";
-    const auto world_coord = pixel_from_world.local().inverse(sf::Vector2f(xf, yf));
-    // std::cout << "world coordinate (" << std::format("{:.1f}, {:.1f}", world_coord.x, world_coord.y) << ")\n";
-    const auto cts_hex = pixel_from_world.inverse(sf::Vector2f(xf, yf));
+    const auto world_coord = pixel_from_world.inverse(sf::Vector2f(xf, yf));
+    const auto cts_hex = world_from_hex.inverse(world_coord);
     hovered = pi::nearest_hex<HexCoord>(cts_hex);
-    // std::cout << "hex coordinate (" << hovered->x << ", " << hovered->y << ")\n";
 
     // if the mouse button is down, update the line from the
     // clicked hex to the hovered hex
@@ -159,16 +160,19 @@ int main()
 {
     // Create the window, but make sure it's not resizeable
     const highlight::window_settings window_settings;
+    const highlight::ui_settings ui_settings;
     constexpr highlight::world_settings world_settings;
 
     sf::RenderWindow window{ sf::VideoMode(window_settings.dimensions),
                              window_settings.name, window_settings.style };
 
     // Create the basis for the grid - centered in the middle of the screen
-    highlight_system system(pi::HexTop::Flat,
+    highlight_system system(pi::HexTop::Pointed,
                             static_cast<float>(window_settings.dimensions.x),
                             static_cast<float>(window_settings.dimensions.y),
                             world_settings.pixels_per_unit);
+
+    sf::Font font(ui_settings.font);
 
     while (window.isOpen())
     {
@@ -199,6 +203,17 @@ int main()
         }
         window.clear();
         system.draw(window);
+        for (const auto & hex : system.shapes | std::views::keys)
+        {
+            sf::Text text(font);
+            text.setString(std::format("{}, {}", hex.x, hex.y));
+            text.setCharacterSize(12);
+            text.setFillColor(sf::Color::Black);
+            auto world_position = system.world_from_hex * as_float(hex);
+            auto pixel_position = system.pixel_from_world * world_position;
+            text.setPosition(pixel_position);
+            window.draw(text);
+        }
         window.display();
     }
 }

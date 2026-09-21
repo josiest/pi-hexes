@@ -14,3 +14,5 @@ target_compile_options(simple PRIVATE -fconcepts-diagnostics-depth=5)
 add_executable(highlight src/highlight.cpp)
 target_link_libraries(highlight PRIVATE sfml-graphics sfml-system sfml-window pi::hexes)
 target_compile_options(highlight PRIVATE -fconcepts-diagnostics-depth=5)
+
+file(COPY arial.ttf DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
