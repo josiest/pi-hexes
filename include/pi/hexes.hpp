@@ -18,27 +18,6 @@ enum class HexTop{ Pointed, Flat };
 template<std::floating_point Field>
 static constexpr Field sqrt3 = 1.73205;
 
-/**
- * A representation of a hexagonal coordinate.
- *
- * Hexes may be printed, added, subtracted and negated
- *
- * \code{.cpp}
- * hex<int> const h1(1, 2);
- * hex<int> const h2(3, 4);
- *
- * std::cout << (h1+h2) << '\n';
- * std::cout << (h1-h2) << '\n';
- * std::cout << (-h1) << '\n';
- * \endcode
- *
- * ```
- * > <4, 6, -10>
- * > <-2, -2, 4>
- * > <-1, -2, 3>
- * ```
- */
-
 template<euclidean_vector2 Point>
 constexpr scalar_field_t<Point> hex_q_value(const Point & p) { return p.x; }
 
@@ -48,44 +27,25 @@ constexpr scalar_field_t<Point> hex_r_value(const Point & p) { return p.y; }
 template<euclidean_vector2 Point>
 constexpr scalar_field_t<Point> hex_s_value(const Point & p) { return -p.x - p.y; }
 
+
 /**
  * Compute the affine basis vectors for hex-space in 2 dimensions
- * \note outputs a row-major 3x3 matrix into_elements
- *       that transforms 2d affine cartesian coordinates into 2d affine axial hex coordinates
  */
-template<std::floating_point Field, std::output_iterator<Field> FieldOutput>
-FieldOutput hex_basis2d(HexTop top_style, FieldOutput into_elements)
+template<std::floating_point Field>
+affine_transform2<Field> hex_basis2(HexTop top_style)
 {
-    auto basis = top_style == HexTop::Pointed?
-        std::array{ sqrt3<Field>, sqrt3<Field>/2, Field(0),
-                    Field(0), 3/Field(2), Field(0),
-                    Field(0), Field(0), Field(1) }
+    const Field x_offset_angle = top_style == HexTop::Pointed? 0.f : std::numbers::pi_v<Field>/6.f;
+    const Field y_offset_angle = top_style == HexTop::Pointed? std::numbers::pi_v<Field>/3.f
+                                                             : std::numbers::pi_v<Field>/2.f;
 
-    : std::array{  3/Field(2), Field(0), Field(0),
-                   sqrt3<Field>/2, sqrt3<Field>, Field(0),
-                   Field(0), Field(0), Field(1) };
+    affine_transform2<Field> basis;
+    basis.x_basis(std::cos(x_offset_angle), std::sin(x_offset_angle));
+    basis.y_basis(std::cos(y_offset_angle), std::sin(y_offset_angle));
+    basis.scale_by(std::sqrt(3.f));
 
-    return std::ranges::copy(basis, into_elements).out;
-}
-
-/**
- * Compute the affine inverse basis vectors for hex-space in 2-dimensions
- * \note outputs a row-major 3x3 matrix into_elements
- *       that transforms 2d affine axial hex coordinates into 2d affine cartesian coordinates
- */
-template<std::floating_point Field, std::output_iterator<Field> FieldOutput>
-FieldOutput inverse_hex_basis2d(HexTop top_style, FieldOutput into_elements)
-{
-    auto basis = top_style == HexTop::Pointed?
-        std::array{ sqrt3<Field>/3, -1/Field(3), Field(0),
-                    Field(0), 2/Field(3), Field(0),
-                    Field(0), Field(0), Field(1) }
-
-    : std::array{  2/Field(3), Field(0), Field(0),
-                   -1/Field(3), sqrt3<Field>/3, Field(0),
-                   Field(0), Field(0), Field(1) };
-
-    return std::ranges::copy(basis, into_elements).out;
+    mat3x3 basis_mat;
+    std::copy(basis.begin(), basis.end(), std::begin(basis_mat.data));
+    return basis;
 }
 
 /**
@@ -113,7 +73,7 @@ OutPoint nearest_hex(InField x, InField y)
     std::ranges::transform(hex_values, std::begin(rounded_hex_values),
                            [](const auto e) { return std::round(e); });
 
-    vec2 differences = std::abs(rounded_hex_values.data - hex_values.data);
+    vec2 differences{ std::valarray(std::abs(rounded_hex_values.data - hex_values.data)) };
 
     auto i = std::distance(std::begin(differences), std::ranges::max_element(differences));
     rounded_hex_values.data[i] -= std::accumulate(std::begin(rounded_hex_values),
@@ -147,15 +107,10 @@ template<euclidean_vector2 Point, std::output_iterator<Point> PointOutput>
 requires std::integral<scalar_field_t<Point>>
 PointOutput line(const Point& a, const Point& b, PointOutput into_hexes) noexcept
 {
-    const auto ax = static_cast<float>(a.x);
-    const auto ay = static_cast<float>(a.y);
+    const auto ax = static_cast<float>(a.x); const auto ay = static_cast<float>(a.y);
+    const auto bx = static_cast<float>(b.x); const auto by = static_cast<float>(b.y);
 
-    const auto bx = static_cast<float>(b.x);
-    const auto by = static_cast<float>(b.y);
-
-    const Point difference { ax - bx, ay - by };
-
-    const scalar_field_t<Point> n = hex_norm(difference);
+    const scalar_field_t<Point> n = hex_norm(Point{ a.x-b.x, a.y-b.y });
     *into_hexes++ = a;
     for (int i = 1; i < n; i++)
     {
